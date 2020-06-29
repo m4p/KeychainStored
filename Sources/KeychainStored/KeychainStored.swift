@@ -23,9 +23,12 @@ public struct KeychainStored<Value: Codable, ValueEncoder: TopLevelEncoder, Valu
         }
     }
     
+    /// The keychain group.
+    private let group: String?
+
     /// The logger used to log errors.
     private let logger: Logger?
-    
+
     /// The encoder used to encode values.
     private let encoder: ValueEncoder
     
@@ -39,8 +42,9 @@ public struct KeychainStored<Value: Codable, ValueEncoder: TopLevelEncoder, Valu
     /// - parameter logger: When set, errors are logged using this closure.
     /// - parameter encoder: The encoder to use to encode values. Note that the encoder is not used if the value is a String – they are stored directly as UTF-8 instead.
     /// - parameter decoder: The decoder to use to decode values. Note that the decoder is not used if the value is a String – they are stored directly as UTF-8 instead.
-    public init(service: String, logger: Logger? = { print($0) }, encoder: ValueEncoder, decoder: ValueDecoder) {
+    public init(service: String, group: String? = nil, logger: Logger? = { print($0) }, encoder: ValueEncoder, decoder: ValueDecoder) {
         self.service = service
+        self.group = group
         self.logger = logger
         self.encoder = encoder
         self.decoder = decoder
@@ -53,12 +57,16 @@ public struct KeychainStored<Value: Codable, ValueEncoder: TopLevelEncoder, Valu
     // MARK: Query
     
     private var searchQuery: [String: Any] {
-        [
+        var attributes: [String: Any] = [
             kSecClass as String: securityClass,
             kSecAttrService as String: service
-        ]
+            ] as [String : Any]
+        if let group = group {
+            attributes[kSecAttrAccessGroup as String] = group
+        }
+        return attributes
     }
-    
+
     // MARK: Loading the value from the keychain
     
     /// Loads the value from the keychain.
@@ -110,9 +118,13 @@ public struct KeychainStored<Value: Codable, ValueEncoder: TopLevelEncoder, Valu
             return
         }
         
-        let attributes: [String: Any] = [
+        var attributes: [String: Any] = [
             kSecValueData as String: encoded
         ]
+
+        if let group = group {
+            attributes[kSecAttrAccessGroup as String] = group
+        }
         
         var status = SecItemUpdate(
             searchQuery as CFDictionary,
